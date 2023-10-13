@@ -1,0 +1,167 @@
+data:
+  AzureWebJobsStorage: ''
+  FUNCTIONS_WORKER_RUNTIME: ZG90bmV0
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dapr-topic-trigger-kafka
+---
+data:
+  host.master: d0tGUEZiQUxhWGtPYTgzc1MtZ2RHazRUcllNemxsSld6S3NBVWtGeW5LY1lBekZ1a1NjOXVnPT0=
+  host.function.default: eXRTejZrZVk4a1JrMGViWTYtM1BzajdnY1k4cU1mdk41dnNFMnlXRHI4aXZBekZ1Ym5rMk93PT0=
+  host.systemKey.default: cGU0NS14NXA1Q29aT2JrYWNFc1JkLUF5S19kSlcySlJGbnB0NlVnY3ZTVUtBekZ1TTZRTXZBPT0=
+  functions.daprpublishmessagetokafka.default: OENwR28tWmwzc0ZzeFdOOUlrZkNuQ3hIVXV6SGt4b042bjVtMDJDR0ZfdnlBekZ1bEpaQkxnPT0=
+apiVersion: v1
+kind: Secret
+metadata:
+  name: func-keys-kube-secret-dapr-topic-trigger-kafka
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dapr-topic-trigger-kafka-function-keys-identity-svc-act
+---
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - secrets
+  - configMaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: functions-keys-manager-role
+---
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: functions-keys-manager-role
+subjects:
+- kind: ServiceAccount
+  name: dapr-topic-trigger-kafka-function-keys-identity-svc-act
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dapr-topic-trigger-kafka-function-keys-identity-svc-act-functions-keys-manager-rolebinding
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dapr-topic-trigger-kafka-http
+spec:
+  selector:
+    app: dapr-topic-trigger-kafka-http
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dapr-topic-trigger-kafka-http
+  labels:
+    app: dapr-topic-trigger-kafka-http
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dapr-topic-trigger-kafka-http
+  template:
+    metadata:
+      labels:
+        app: dapr-topic-trigger-kafka-http
+    spec:
+      containers:
+      - name: dapr-topic-trigger-kafka-http
+        image: mdashique/dapr-topic-trigger-kafka:latest
+        ports:
+        - containerPort: 80
+        env:
+        - name: AzureFunctionsJobHost__functions__0
+          value: DaprPublishMessageToKafka
+        - name: AzureWebJobsSecretStorageType
+          value: kubernetes
+        - name: AzureWebJobsKubernetesSecretName
+          value: secrets/func-keys-kube-secret-dapr-topic-trigger-kafka
+        envFrom:
+        - secretRef:
+            name: dapr-topic-trigger-kafka
+        readinessProbe:
+          failureThreshold: 3
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 240
+          httpGet:
+            path: /
+            port: 80
+            scheme: HTTP
+        startupProbe:
+          failureThreshold: 3
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 240
+          httpGet:
+            path: /
+            port: 80
+            scheme: HTTP
+      serviceAccountName: dapr-topic-trigger-kafka-function-keys-identity-svc-act
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dapr-topic-trigger-kafka
+  labels:
+    app: dapr-topic-trigger-kafka
+spec:
+  selector:
+    matchLabels:
+      app: dapr-topic-trigger-kafka
+  template:
+    metadata:
+      labels:
+        app: dapr-topic-trigger-kafka
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "dapr-topic-trigger-kafka"
+        dapr.io/app-port: "3001"
+        dapr.io/enable-api-logging: "true"
+    spec:
+      containers:
+      - name: dapr-topic-trigger-kafka
+        image: mdashique/dapr-topic-trigger-kafka:latest
+        env:
+        - name: AzureFunctionsJobHost__functions__0
+          value: KafkaTopicTrigger
+        envFrom:
+        - secretRef:
+            name: dapr-topic-trigger-kafka
+        readinessProbe:
+          failureThreshold: 3
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 240
+          httpGet:
+            path: /
+            port: 80
+            scheme: HTTP
+        startupProbe:
+          failureThreshold: 3
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 240
+          httpGet:
+            path: /
+            port: 80
+            scheme: HTTP
+      serviceAccountName: dapr-topic-trigger-kafka-function-keys-identity-svc-act
+

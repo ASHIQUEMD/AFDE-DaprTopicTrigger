@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: functionapp
+  labels:
+    app: functionapp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: functionapp
+  template:
+    metadata:
+      labels:
+        app: functionapp
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "functionapp"
+        dapr.io/app-port: "3001"
+    spec:
+      containers:
+      - name: functionapp
+        image: mdashique/dapr-topic-trigger-kafka:latest
+        ports:
+        - containerPort: 3001
+        imagePullPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: functionapp
+spec:
+  selector:
+    app: functionapp
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: LoadBalancer
+# ---
+# apiVersion: rbac.authorization.k8s.io/v1
+# kind: Role
+# metadata:
+#   name: secret-reader
+#   namespace: kafka
+# rules:
+# - apiGroups: [""]
+#   resources: ["secrets"]
+#   verbs: ["get", "list"]
+# ---
+
+# kind: RoleBinding
+# apiVersion: rbac.authorization.k8s.io/v1
+# metadata:
+#   name: dapr-secret-reader
+#   namespace: kafka
+# subjects:
+# - kind: ServiceAccount
+#   name: default
+#   namespace: dapr-system
+# roleRef:
+#   kind: Role
+#   name: secret-reader
+#   apiGroup: rbac.authorization.k8s.io

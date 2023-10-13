@@ -1,0 +1,1 @@
+## [Steps to run the function app](https://github.com/Azure/azure-functions-dapr-extension/tree/master/samples/dotnet-azurefunction#net-azure-function-sample)
